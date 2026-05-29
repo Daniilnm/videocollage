@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0a">
+<title>VideoCollage</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--s1:#1c1c1e;--s2:#2c2c2e;--s3:#3a3a3c;
+  --accent:#ff2d55;--accent2:#ff6b81;
+  --t1:#fff;--t2:#ababab;--t3:#636366;--r:14px;
+}
+html,body{
+  height:100%;overflow:hidden;background:var(--bg);color:var(--t1);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;
+  -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;
+}
+.app{height:100%;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,20px)}
+
+/* ── HEADER ── */
+.hdr{display:flex;align-items:center;gap:8px;padding:10px 16px 4px;flex-shrink:0}
+.logo{font-size:21px;font-weight:800;letter-spacing:-.6px;flex:1}
+.logo em{font-style:normal;color:var(--accent)}
+.icon-btn{
+  width:34px;height:34px;border-radius:50%;background:var(--s1);border:none;
+  color:var(--t2);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s;flex-shrink:0;
+}
+.icon-btn:active{background:var(--s2)}
+.icon-btn.on{background:rgba(255,45,85,.2);color:var(--accent)}
+
+/* ── TEMPLATES ── */
+.section-label{
+  font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--t3);padding:6px 16px 3px;flex-shrink:0;
+}
+.tpl-row{
+  display:flex;gap:7px;padding:0 16px 10px;overflow-x:auto;flex-shrink:0;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.tpl-row::-webkit-scrollbar{display:none}
+.tpl-btn{
+  flex-shrink:0;width:50px;height:50px;border-radius:11px;
+  border:2px solid var(--s2);background:var(--s1);cursor:pointer;padding:5px;
+  transition:border-color .15s,background .15s;
+}
+.tpl-btn.active{border-color:var(--accent);background:rgba(255,45,85,.12)}
+.tpl-btn svg{display:block}
+.tpl-btn.custom{font-size:20px;color:var(--t3);display:flex;align-items:center;justify-content:center;padding:0}
+.tpl-btn.custom.active{color:var(--accent)}
+
+/* ── GAP SLIDER ── */
+.gap-row{display:flex;align-items:center;gap:10px;padding:0 16px 8px;flex-shrink:0}
+.gap-lbl{font-size:11px;font-weight:500;color:var(--t3);flex-shrink:0}
+.gap-val{font-size:11px;font-weight:600;color:var(--t2);width:52px;text-align:right;flex-shrink:0}
+input[type=range]{
+  flex:1;height:4px;accent-color:var(--accent);-webkit-appearance:none;appearance:none;
+  background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--pct,15%),var(--s2) var(--pct,15%),var(--s2) 100%);
+  border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--t1);box-shadow:0 1px 6px rgba(0,0,0,.5);
+}
+
+/* ── CUSTOM GRID POPUP ── */
+.cp-backdrop{position:fixed;inset:0;z-index:100;display:none}
+.cp-backdrop.on{display:block}
+.cp-popup{
+  position:fixed;z-index:101;background:var(--s1);border-radius:16px;
+  padding:14px 14px 10px;box-shadow:0 12px 40px rgba(0,0,0,.7);
+  border:1px solid var(--s2);display:none;
+}
+.cp-popup.on{display:block}
+.cp-grid{display:grid;grid-template-columns:repeat(5,30px);gap:4px}
+.cp-cell{width:30px;height:30px;border-radius:6px;background:var(--s2);cursor:pointer;transition:background .08s}
+.cp-cell.hi{background:var(--accent)}
+.cp-size{font-size:12px;font-weight:600;color:var(--t2);text-align:center;padding-top:10px;letter-spacing:.2px}
+.cp-hint{font-size:10px;color:var(--t3);text-align:center;padding-top:2px}
+
+/* ── PREVIEW / STAGE ── */
+.preview-wrap{
+  flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 10px;
+}
+.stage-outer{
+  height:100%;max-width:100%;aspect-ratio:9/16;
+  border-radius:var(--r);overflow:hidden;position:relative;
+  box-shadow:0 10px 50px rgba(0,0,0,.7);
+  /* GPU layer — critical for smooth iOS video */
+  -webkit-transform:translateZ(0);transform:translateZ(0);
+  will-change:transform;
+}
+#stage{
+  width:100%;height:100%;position:relative;background:#000;
+  -webkit-transform:translateZ(0);transform:translateZ(0);
+}
+.slot{position:absolute;overflow:hidden;background:var(--s1);cursor:pointer}
+.slot video{
+  width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;
+  /* Force hardware-accelerated decoding on iOS */
+  -webkit-transform:translateZ(0);transform:translateZ(0);
+  will-change:transform;
+}
+.slot img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.slot-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:5px;pointer-events:none;
+}
+.slot-empty svg{opacity:.35}
+.slot-empty span{font-size:10px;color:var(--t3)}
+.slot-overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  /* visibility:hidden instead of opacity:0 — avoids compositing overhead when hidden */
+  visibility:hidden;pointer-events:none;
+  transition:visibility 0s .18s;
+}
+.slot-overlay.on{visibility:visible;pointer-events:auto;transition:visibility 0s 0s}
+.sov-btn{
+  width:40px;height:40px;border-radius:50%;
+  /* No backdrop-filter — too expensive on iOS, kills video FPS */
+  background:rgba(60,60,60,.85);border:1.5px solid rgba(255,255,255,.22);
+  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.sov-btn.danger{background:rgba(180,30,20,.85);border-color:rgba(255,100,90,.3)}
+
+/* ── RESIZE LAYER ── */
+#resizeLayer{position:absolute;inset:0;pointer-events:none;z-index:10}
+#resizeLayer.on{pointer-events:auto}
+.r-handle{
+  position:absolute;width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.95);box-shadow:0 2px 10px rgba(0,0,0,.45);
+  transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .1s,box-shadow .1s;
+  pointer-events:auto;touch-action:none;cursor:grab;
+}
+.r-handle:active,.r-handle.drag{
+  transform:translate(-50%,-50%) scale(1.15);
+  box-shadow:0 4px 18px rgba(0,0,0,.5);cursor:grabbing;
+}
+.r-handle svg{display:block}
+.r-handle.snapped{
+  background:var(--accent);
+  box-shadow:0 0 0 3px rgba(255,45,85,.35),0 4px 14px rgba(0,0,0,.4);
+}
+.r-handle.snapped svg path{stroke:#fff}
+/* dim edit mode: slots get lower opacity */
+#stage.edit-mode .slot{opacity:.85}
+
+/* ── STICKER LAYER ── */
+#stickerLayer{position:absolute;inset:0;pointer-events:none;z-index:20}
+.sticker-anchor{
+  position:absolute;pointer-events:auto;touch-action:none;cursor:grab;
+}
+.sticker-anchor:active{cursor:grabbing}
+.sticker-content{
+  position:relative;transform-origin:center center;
+  display:inline-block;
+}
+.sticker-content img{
+  display:block;border-radius:4px;
+  pointer-events:none;-webkit-user-drag:none;
+}
+.sticker-content.selected img{
+  outline:2px solid var(--accent);outline-offset:2px;border-radius:6px;
+}
+.sticker-del{
+  position:absolute;top:-9px;right:-9px;width:22px;height:22px;
+  border-radius:50%;background:var(--accent);color:#fff;
+  font-size:13px;line-height:1;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);z-index:2;
+}
+/* corner rotate+scale handle */
+.sticker-corner{
+  position:absolute;bottom:-13px;right:-13px;
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(255,255,255,.92);
+  box-shadow:0 2px 8px rgba(0,0,0,.45);
+  cursor:grab;touch-action:none;z-index:3;
+  display:flex;align-items:center;justify-content:center;
+}
+.sticker-corner:active{cursor:grabbing}
+
+/* ── FPS ROW ── */
+.fps-row{display:flex;align-items:center;gap:10px;padding:0 16px 8px;flex-shrink:0}
+.fps-lbl{font-size:11px;font-weight:500;color:var(--t3);flex-shrink:0}
+.fps-pills{display:flex;gap:4px}
+.fps-pill{
+  padding:5px 11px;border-radius:9px;border:none;
+  background:var(--s1);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;
+  transition:background .12s,color .12s;
+}
+.fps-pill.active{background:var(--accent);color:#fff}
+.fps-pill:active{opacity:.7}
+
+/* ── BOTTOM BAR ── */
+.bottom-bar{
+  flex-shrink:0;padding:10px 16px;
+  padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:8px;
+}
+.btn{
+  height:50px;border-radius:var(--r);border:none;font-size:14px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  transition:transform .1s,opacity .1s;-webkit-tap-highlight-color:transparent;letter-spacing:-.1px;
+  flex:1;
+}
+.btn:active{transform:scale(.96);opacity:.85}
+.btn-ghost{background:var(--s1);color:var(--t1)}
+.btn-accent{background:var(--accent);color:#fff;flex:1.4}
+.btn-accent:disabled{background:var(--s2);color:var(--t3);cursor:default}
+.btn-accent:disabled:active{transform:none;opacity:1}
+
+/* ── RENDER OVERLAY ── */
+.render-overlay{
+  position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px 32px;
+}
+.render-overlay.on{display:flex}
+.ro-icon{
+  width:64px;height:64px;border-radius:18px;
+  background:linear-gradient(135deg,var(--accent),#ff6b81);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  box-shadow:0 8px 24px rgba(255,45,85,.4);
+}
+.ro-title{font-size:20px;font-weight:700}
+.ro-sub{font-size:13px;color:var(--t2);text-align:center;min-height:18px}
+.progress-track{width:100%;max-width:260px;height:5px;background:var(--s2);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .1s linear}
+.ro-cancel{padding:10px 28px;border-radius:12px;border:none;background:var(--s1);color:var(--t2);font-size:15px;font-weight:500;cursor:pointer}
+.ro-cancel:active{background:var(--s2)}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:max(90px,calc(env(safe-area-inset-bottom) + 74px));
+  left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(50,50,50,.95);color:#fff;font-size:14px;
+  padding:10px 18px;border-radius:20px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap;pointer-events:none;z-index:400;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="hdr">
+    <div class="logo">Video<em>Collage</em></div>
+    <button class="icon-btn" id="undoBtn" title="Отменить">↩</button>
+    <button class="icon-btn" id="editBtn" title="Редактировать раскладку">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M2 13h3l7-7-3-3-7 7v3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M9 3l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="icon-btn" id="clearBtn" title="Сбросить">✕</button>
+  </div>
+
+  <div class="section-label">Раскладка</div>
+  <div class="tpl-row" id="tplRow"></div>
+
+  <div class="gap-row">
+    <span class="gap-lbl">Зазор</span>
+    <input type="range" id="gapSlider" min="0" max="20" value="3" step="1">
+    <span class="gap-val" id="gapVal">3 px</span>
+  </div>
+
+  <div class="preview-wrap">
+    <div class="stage-outer">
+      <div id="stage"></div>
+      <div id="stickerLayer"></div>
+      <div id="resizeLayer"></div>
+    </div>
+  </div>
+
+  <div class="fps-row">
+    <span class="fps-lbl">Рендер FPS</span>
+    <div class="fps-pills" id="fpsPills">
+      <button class="fps-pill" data-fps="12">12</button>
+      <button class="fps-pill" data-fps="24">24</button>
+      <button class="fps-pill active" data-fps="30">30</button>
+      <button class="fps-pill" data-fps="60">60</button>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn btn-ghost" id="playBtn">▶ Превью</button>
+    <button class="btn btn-ghost" id="stickerBtn">🖼 Стикер</button>
+    <button class="btn btn-accent" id="renderBtn" disabled>Сохранить ↓</button>
+  </div>
+</div>
+
+<!-- Custom grid popup -->
+<div class="cp-backdrop" id="cpBackdrop"></div>
+<div class="cp-popup" id="cpPopup">
+  <div class="cp-grid" id="cpGrid"></div>
+  <div class="cp-size" id="cpSize">1 × 1</div>
+  <div class="cp-hint">нажмите для применения</div>
+</div>
+
+<!-- Render overlay -->
+<div class="render-overlay" id="renderOverlay">
+  <div class="ro-icon">🎬</div>
+  <div class="ro-title">Рендеринг…</div>
+  <div class="progress-track"><div class="progress-fill" id="pFill"></div></div>
+  <div class="ro-sub" id="roSub">Подготовка…</div>
+  <button class="ro-cancel" id="roCancel">Отмена</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="filePicker" accept="video/*,image/*" style="display:none">
+<input type="file" id="stickerPicker" accept="image/*" style="display:none">
+<canvas id="rc" style="position:fixed;left:-9999px;top:-9999px;pointer-events:none"></canvas>
+
+<script>
+'use strict';
+
+// ─── TEMPLATES ────────────────────────────────────────────────────────────────
+const T = [
+  {id:'1',  n:1, a:[{x:0,y:0,w:1,h:1}]},
+  {id:'2v', n:2, a:[{x:0,y:0,w:.5,h:1},{x:.5,y:0,w:.5,h:1}]},
+  {id:'2h', n:2, a:[{x:0,y:0,w:1,h:.5},{x:0,y:.5,w:1,h:.5}]},
+  {id:'3l', n:3, a:[{x:0,y:0,w:.6,h:1},{x:.6,y:0,w:.4,h:.5},{x:.6,y:.5,w:.4,h:.5}]},
+  {id:'3r', n:3, a:[{x:0,y:0,w:.4,h:.5},{x:0,y:.5,w:.4,h:.5},{x:.4,y:0,w:.6,h:1}]},
+  {id:'3t', n:3, a:[{x:0,y:0,w:1,h:.6},{x:0,y:.6,w:.5,h:.4},{x:.5,y:.6,w:.5,h:.4}]},
+  {id:'3b', n:3, a:[{x:0,y:0,w:.5,h:.4},{x:.5,y:0,w:.5,h:.4},{x:0,y:.4,w:1,h:.6}]},
+  {id:'3cv',n:3, a:[{x:0,y:0,w:1/3,h:1},{x:1/3,y:0,w:1/3,h:1},{x:2/3,y:0,w:1/3,h:1}]},
+  {id:'3ch',n:3, a:[{x:0,y:0,w:1,h:1/3},{x:0,y:1/3,w:1,h:1/3},{x:0,y:2/3,w:1,h:1/3}]},
+  {id:'4',  n:4, a:[{x:0,y:0,w:.5,h:.5},{x:.5,y:0,w:.5,h:.5},{x:0,y:.5,w:.5,h:.5},{x:.5,y:.5,w:.5,h:.5}]},
+  {id:'4l', n:4, a:[{x:0,y:0,w:.55,h:1},{x:.55,y:0,w:.45,h:1/3},{x:.55,y:1/3,w:.45,h:1/3},{x:.55,y:2/3,w:.45,h:1/3}]},
+  {id:'5',  n:5, a:[{x:0,y:0,w:.5,h:.5},{x:.5,y:0,w:.5,h:.5},{x:0,y:.5,w:1/3,h:.5},{x:1/3,y:.5,w:1/3,h:.5},{x:2/3,y:.5,w:1/3,h:.5}]},
+  {id:'6',  n:6, a:[{x:0,y:0,w:.5,h:1/3},{x:.5,y:0,w:.5,h:1/3},{x:0,y:1/3,w:.5,h:1/3},{x:.5,y:1/3,w:.5,h:1/3},{x:0,y:2/3,w:.5,h:1/3},{x:.5,y:2/3,w:.5,h:1/3}]},
+  {id:'9',  n:9, a:[
+    {x:0,y:0,w:1/3,h:1/3},{x:1/3,y:0,w:1/3,h:1/3},{x:2/3,y:0,w:1/3,h:1/3},
+    {x:0,y:1/3,w:1/3,h:1/3},{x:1/3,y:1/3,w:1/3,h:1/3},{x:2/3,y:1/3,w:1/3,h:1/3},
+    {x:0,y:2/3,w:1/3,h:1/3},{x:1/3,y:2/3,w:1/3,h:1/3},{x:2/3,y:2/3,w:1/3,h:1/3},
+  ]},
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let activeTpl   = T[0];
+let isCustom    = false;
+let slots       = mkSlots(T[0]);
+let playing     = false;
+let pendingSlot = -1;
+let openOverlay = -1;
+let renderStop  = false;
+let gapPx       = 3;
+let editMode    = false;
+let stickers    = [];
+let nextStkId   = 0;
+let selStkId    = null;
+let renderFps   = 30;
+const history   = [];
+
+function mkSlots(tpl, prev=[]) {
+  return tpl.a.map((area, i) => {
+    const p = prev[i];
+    return p?.type ? {area:{...p.area},type:p.type,el:p.el,src:p.src} : {area:{...area},type:null,el:null,src:null};
+  });
+}
+
+// ─── TEMPLATE ICONS ───────────────────────────────────────────────────────────
+const SZ=40, GI=2;
+function tplIcon(tpl) {
+  const rects = tpl.a.map(a => {
+    const x=a.x*SZ+(a.x>0?GI/2:0), y=a.y*SZ+(a.y>0?GI/2:0);
+    const w=a.w*SZ-(a.x>0?GI/2:0)-(a.x+a.w<1?GI/2:0);
+    const h=a.h*SZ-(a.y>0?GI/2:0)-(a.y+a.h<1?GI/2:0);
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="2.5" fill="currentColor"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${SZ} ${SZ}" width="100%" height="100%" style="color:#666">${rects}</svg>`;
+}
+
+function buildPicker() {
+  const row = document.getElementById('tplRow');
+  row.innerHTML = '';
+  T.forEach(tpl => {
+    const btn = document.createElement('button');
+    btn.className = 'tpl-btn' + (!isCustom && tpl===activeTpl ? ' active' : '');
+    btn.innerHTML = tplIcon(tpl);
+    btn.onclick = () => { closeCpPopup(); applyTpl(tpl, false); };
+    row.appendChild(btn);
+  });
+  const customBtn = document.createElement('button');
+  customBtn.className = 'tpl-btn custom' + (isCustom ? ' active' : '');
+  customBtn.textContent = '⊞';
+  customBtn.id = 'customBtn';
+  customBtn.onclick = toggleCpPopup;
+  row.appendChild(customBtn);
+}
+
+function applyTpl(tpl, custom=false) {
+  activeTpl = tpl; isCustom = custom;
+  slots = mkSlots(tpl, slots);
+  openOverlay = -1;
+  buildPicker();
+  buildStage();
+  syncBtns();
+}
+
+// ─── CUSTOM GRID PICKER ───────────────────────────────────────────────────────
+function buildCpGrid() {
+  const grid = document.getElementById('cpGrid');
+  grid.innerHTML = '';
+  for (let r=1;r<=5;r++) for (let c=1;c<=5;c++) {
+    const cell = document.createElement('div');
+    cell.className='cp-cell'; cell.dataset.c=c; cell.dataset.r=r;
+    grid.appendChild(cell);
+  }
+  updateCpHi(1,1);
+  grid.onmousemove = e => { const t=e.target.closest('.cp-cell'); if(t) updateCpHi(+t.dataset.c,+t.dataset.r); };
+  grid.onclick = e => { const t=e.target.closest('.cp-cell'); if(t) confirmCp(+t.dataset.c,+t.dataset.r); };
+  grid.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const pt=e.touches[0];
+    const t=document.elementFromPoint(pt.clientX,pt.clientY)?.closest('.cp-cell');
+    if(t) updateCpHi(+t.dataset.c,+t.dataset.r);
+  }, {passive:false});
+  grid.addEventListener('touchend', e => {
+    const pt=e.changedTouches[0];
+    const t=document.elementFromPoint(pt.clientX,pt.clientY)?.closest('.cp-cell');
+    if(t) confirmCp(+t.dataset.c,+t.dataset.r);
+  });
+}
+
+function updateCpHi(c,r) {
+  document.querySelectorAll('.cp-cell').forEach(el => el.classList.toggle('hi',+el.dataset.c<=c&&+el.dataset.r<=r));
+  document.getElementById('cpSize').textContent = `${c} × ${r}`;
+}
+
+function confirmCp(cols,rows) {
+  const cw=1/cols, rh=1/rows;
+  const areas=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) areas.push({x:c*cw,y:r*rh,w:cw,h:rh});
+  closeCpPopup();
+  applyTpl({id:`c${cols}x${rows}`,n:cols*rows,a:areas}, true);
+  toast(`Сетка ${cols} × ${rows} ✓`);
+}
+
+function toggleCpPopup() {
+  const pop=document.getElementById('cpPopup'), bd=document.getElementById('cpBackdrop');
+  if(pop.classList.contains('on')){closeCpPopup();return;}
+  buildCpGrid();
+  const btn=document.getElementById('customBtn');
+  const r=btn.getBoundingClientRect();
+  pop.style.top=(r.bottom+8)+'px';
+  pop.style.right=(window.innerWidth-r.right)+'px';
+  pop.classList.add('on'); bd.classList.add('on');
+}
+function closeCpPopup(){
+  document.getElementById('cpPopup').classList.remove('on');
+  document.getElementById('cpBackdrop').classList.remove('on');
+}
+document.getElementById('cpBackdrop').onclick=closeCpPopup;
+
+// ─── GAP SLIDER ───────────────────────────────────────────────────────────────
+const gapSlider=document.getElementById('gapSlider');
+function updateGap(v){
+  gapPx=v;
+  document.getElementById('gapVal').textContent = v===0?'0 (без)':v+' px';
+  gapSlider.style.setProperty('--pct',(v/20*100)+'%');
+  // While playing: just shift CSS, never remove video elements from DOM
+  if(playing) refreshSlotCSS();
+  else buildStage();
+}
+gapSlider.addEventListener('input',()=>updateGap(+gapSlider.value));
+// on drag-end commit a full rebuild so resize handles also update
+gapSlider.addEventListener('change',()=>{ if(!playing) buildStage(); });
+updateGap(3);
+
+// ─── STAGE ────────────────────────────────────────────────────────────────────
+function slotPos(a) {
+  const hg=gapPx/2;
+  return {
+    left:  `calc(${a.x*100}% + ${a.x>0?hg:0}px)`,
+    top:   `calc(${a.y*100}% + ${a.y>0?hg:0}px)`,
+    right: `calc(${(1-a.x-a.w)*100}% + ${a.x+a.w<1?hg:0}px)`,
+    bottom:`calc(${(1-a.y-a.h)*100}% + ${a.y+a.h<1?hg:0}px)`,
+  };
+}
+
+function buildStage() {
+  const stage=document.getElementById('stage');
+  stage.classList.toggle('edit-mode', editMode);
+
+  // Fast path: playing + same slot count + no type changes → only reposition
+  const existingSlots=stage.querySelectorAll(':scope>.slot');
+  if(playing && existingSlots.length===slots.length) {
+    refreshSlotCSS();
+    buildResizeLayer();
+    return;
+  }
+
+  stage.innerHTML='';
+
+  slots.forEach((slot,i) => {
+    const el=document.createElement('div');
+    el.className='slot';
+    Object.assign(el.style, slotPos(slot.area));
+    if(slot.type) {
+      const m=slot.el;
+      m.style.cssText='width:100%;height:100%;object-fit:cover;display:block;pointer-events:none';
+      el.appendChild(m);
+      const ov=document.createElement('div');
+      ov.className='slot-overlay'+(openOverlay===i?' on':'');
+      ov.id=`ov${i}`;
+      const rb=document.createElement('button');
+      rb.className='sov-btn';
+      rb.innerHTML=`<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M3 10a7 7 0 1 0 7-7" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="M3 5v5h5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      rb.onclick=e=>{e.stopPropagation();hideOverlay();openFilePicker(i);};
+      const db=document.createElement('button');
+      db.className='sov-btn danger';
+      db.innerHTML=`<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2l12 12M14 2L2 14" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>`;
+      db.onclick=e=>{e.stopPropagation();hideOverlay();removeMedia(i);};
+      ov.append(rb,db); el.appendChild(ov);
+      el.onclick=()=>{ if(!editMode) openOverlay===i?hideOverlay():showOverlay(i); };
+    } else {
+      el.innerHTML=`<div class="slot-empty"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="12" stroke="white" stroke-width="1.4"/><path d="M13 7v12M7 13h12" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg><span>Добавить</span></div>`;
+      el.onclick=()=>{ if(!editMode){hideOverlay();openFilePicker(i);} };
+    }
+    stage.appendChild(el);
+  });
+
+  buildResizeLayer();
+}
+
+// update slot CSS without DOM rebuild (used during resize drag)
+function refreshSlotCSS() {
+  document.querySelectorAll('#stage .slot').forEach((el,i)=>{
+    if(slots[i]) Object.assign(el.style, slotPos(slots[i].area));
+  });
+}
+
+function showOverlay(i){
+  hideOverlay(); openOverlay=i;
+  const ov=document.getElementById(`ov${i}`);
+  if(ov){ov.classList.add('on');clearTimeout(ov._t);ov._t=setTimeout(hideOverlay,3000);}
+}
+function hideOverlay(){
+  if(openOverlay>=0) document.getElementById(`ov${openOverlay}`)?.classList.remove('on');
+  openOverlay=-1;
+}
+
+// ─── RESIZE LAYER ─────────────────────────────────────────────────────────────
+const EPS=0.012;
+
+function getDividers() {
+  const vMap=new Map(), hMap=new Map();
+  slots.forEach(s=>{
+    const a=s.area;
+    if(a.x+a.w < 1-EPS/2) {
+      const k=Math.round((a.x+a.w)*500)/500;
+      if(!vMap.has(k)) vMap.set(k,[]);
+      vMap.get(k).push({y0:a.y, y1:a.y+a.h});
+    }
+    if(a.y+a.h < 1-EPS/2) {
+      const k=Math.round((a.y+a.h)*500)/500;
+      if(!hMap.has(k)) hMap.set(k,[]);
+      hMap.get(k).push({x0:a.x, x1:a.x+a.w});
+    }
+  });
+  const dividers=[];
+  vMap.forEach((segs,pos)=>{
+    dividers.push({type:'v',pos,span:{y0:Math.min(...segs.map(s=>s.y0)),y1:Math.max(...segs.map(s=>s.y1))}});
+  });
+  hMap.forEach((segs,pos)=>{
+    dividers.push({type:'h',pos,span:{x0:Math.min(...segs.map(s=>s.x0)),x1:Math.max(...segs.map(s=>s.x1))}});
+  });
+  return dividers;
+}
+
+function moveDivider(div, newPos) {
+  newPos = Math.max(0.05, Math.min(0.95, newPos));
+  const diff = newPos - div.pos;
+  if(Math.abs(diff)<0.0005) return;
+  if(div.type==='v') {
+    slots.forEach(s=>{
+      const a=s.area;
+      if(Math.abs(a.x+a.w - div.pos)<EPS) s.area={...a, w:Math.max(0.04, a.w+diff)};
+      else if(Math.abs(a.x - div.pos)<EPS) s.area={...a, x:newPos, w:Math.max(0.04, a.w-diff)};
+    });
+  } else {
+    slots.forEach(s=>{
+      const a=s.area;
+      if(Math.abs(a.y+a.h - div.pos)<EPS) s.area={...a, h:Math.max(0.04, a.h+diff)};
+      else if(Math.abs(a.y - div.pos)<EPS) s.area={...a, y:newPos, h:Math.max(0.04, a.h-diff)};
+    });
+  }
+  div.pos = newPos;
+}
+
+// Snap positions: halves, thirds, quarters, sixths + other dividers
+const SNAP_PTS = [1/8,1/6,1/5,1/4,1/3,3/8,1/2,5/8,2/3,3/4,4/5,5/6,7/8];
+const SNAP_R   = 0.025; // 2.5% snap radius
+
+function snapPos(rawPos, type) {
+  const allPts = [
+    ...SNAP_PTS,
+    ...getDividers().filter(d=>d.type===type).map(d=>d.pos),
+  ];
+  for (const sp of allPts) {
+    if (Math.abs(rawPos - sp) < SNAP_R) return { pos: sp, snapped: true };
+  }
+  return { pos: rawPos, snapped: false };
+}
+
+function buildResizeLayer() {
+  const layer=document.getElementById('resizeLayer');
+  layer.innerHTML='';
+  layer.classList.toggle('on', editMode);
+  if(!editMode) return;
+
+  const stageEl=document.getElementById('stage');
+  getDividers().forEach(div => {
+    const h=document.createElement('div');
+    h.className='r-handle';
+    // Place V-handles at top quarter, H-handles at left quarter — avoids overlap on grids
+    const cx = div.type==='v' ? div.pos : div.span.x0 + (div.span.x1-div.span.x0)*0.25;
+    const cy = div.type==='v' ? div.span.y0 + (div.span.y1-div.span.y0)*0.25 : div.pos;
+    h.style.left=`${cx*100}%`;
+    h.style.top=`${cy*100}%`;
+    h.innerHTML = div.type==='v'
+      ? `<svg width="10" height="16" viewBox="0 0 10 16"><path d="M3 2v12M7 2v12" stroke="#444" stroke-width="1.8" stroke-linecap="round"/></svg>`
+      : `<svg width="16" height="10" viewBox="0 0 16 10"><path d="M2 3h12M2 7h12" stroke="#444" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+
+    let startClient, startDivPos;
+    h.addEventListener('pointerdown', e=>{
+      e.preventDefault(); e.stopPropagation();
+      h.setPointerCapture(e.pointerId);
+      startClient = div.type==='v' ? e.clientX : e.clientY;
+      startDivPos = div.pos;
+      h.classList.add('drag');
+    });
+    h.addEventListener('pointermove', e=>{
+      if(!h.hasPointerCapture(e.pointerId)) return;
+      const rect=stageEl.getBoundingClientRect();
+      const dim = div.type==='v' ? rect.width : rect.height;
+      const cur = div.type==='v' ? e.clientX : e.clientY;
+      const raw = startDivPos + (cur-startClient)/dim;
+      const {pos: snappedPos, snapped} = snapPos(raw, div.type);
+      moveDivider(div, snappedPos);
+      refreshSlotCSS();
+      h.classList.toggle('snapped', snapped);
+      if(div.type==='v') h.style.left=`${div.pos*100}%`;
+      else h.style.top=`${div.pos*100}%`;
+    });
+    h.addEventListener('pointerup', e=>{
+      h.releasePointerCapture(e.pointerId);
+      h.classList.remove('drag');
+      buildStage(); // full rebuild after drag
+    });
+    layer.appendChild(h);
+  });
+}
+
+function toggleEditMode() {
+  editMode = !editMode;
+  document.getElementById('editBtn').classList.toggle('on', editMode);
+  if(editMode) { deselectSticker(); hideOverlay(); }
+  buildStage();
+  toast(editMode ? 'Режим редактирования — тяните границы' : 'Готово');
+}
+document.getElementById('editBtn').onclick = toggleEditMode;
+
+// close edit mode when tapping stage background
+document.getElementById('stage').addEventListener('click', e=>{
+  if(e.target.id==='stage' && !editMode) hideOverlay();
+  if(editMode && e.target.id==='stage') { /* keep edit mode on */ }
+});
+
+// ─── FILE PICKER ──────────────────────────────────────────────────────────────
+const filePicker=document.getElementById('filePicker');
+function openFilePicker(idx){ pendingSlot=idx; filePicker.value=''; filePicker.click(); }
+
+filePicker.addEventListener('change', async ()=>{
+  const file=filePicker.files[0];
+  if(!file||pendingSlot<0) return;
+  const slot=slots[pendingSlot];
+  history.push({slotIdx:pendingSlot, type:slot.type, el:slot.el, src:slot.src});
+  if(history.length>20) history.shift();
+  if(slot.src) URL.revokeObjectURL(slot.src);
+  if(slot.type==='video'&&slot.el) slot.el.pause();
+  const src=URL.createObjectURL(file);
+  slot.src=src;
+  if(file.type.startsWith('video/')) {
+    slot.type='video';
+    const v=document.createElement('video');
+    v.src=src; v.loop=true; v.muted=true; v.playsInline=true;
+    v.setAttribute('playsinline',''); v.preload='auto';
+    slot.el=v;
+    if(playing) v.play().catch(()=>{});
+  } else {
+    slot.type='image';
+    const img=new Image(); img.src=src; slot.el=img;
+  }
+  pendingSlot=-1;
+  buildStage(); syncBtns(); toast('Добавлено ✓');
+});
+
+function removeMedia(i){
+  const slot=slots[i];
+  history.push({slotIdx:i,type:slot.type,el:slot.el,src:slot.src});
+  if(history.length>20) history.shift();
+  if(slot.src) URL.revokeObjectURL(slot.src);
+  if(slot.type==='video'&&slot.el) slot.el.pause();
+  slot.type=null; slot.el=null; slot.src=null;
+  buildStage(); syncBtns();
+}
+
+// ─── UNDO / CLEAR ─────────────────────────────────────────────────────────────
+document.getElementById('undoBtn').onclick=()=>{
+  const h=history.pop();
+  if(!h){toast('Нечего отменять');return;}
+  const slot=slots[h.slotIdx];
+  if(!slot) return;
+  if(slot.src&&slot.src!==h.src) URL.revokeObjectURL(slot.src);
+  if(slot.type==='video'&&slot.el) slot.el.pause();
+  slot.type=h.type; slot.el=h.el; slot.src=h.src;
+  buildStage(); syncBtns(); toast('Отменено');
+};
+document.getElementById('clearBtn').onclick=()=>{
+  if(playing) togglePlay();
+  slots.forEach(s=>{if(s.src)URL.revokeObjectURL(s.src);if(s.type==='video'&&s.el)s.el.pause();});
+  stickers.forEach(s=>{if(s.src)URL.revokeObjectURL(s.src);});
+  stickers=[]; selStkId=null; history.length=0;
+  renderStickerLayer();
+  applyTpl(activeTpl, isCustom);
+  toast('Очищено');
+};
+
+// ─── PLAYBACK ─────────────────────────────────────────────────────────────────
+document.getElementById('playBtn').onclick=togglePlay;
+function togglePlay(){
+  playing=!playing; hideOverlay();
+  slots.forEach(s=>{ if(s.type==='video'&&s.el) playing?s.el.play().catch(()=>{}):s.el.pause(); });
+  document.getElementById('playBtn').textContent=playing?'⏸ Стоп':'▶ Превью';
+}
+
+function syncBtns(){ document.getElementById('renderBtn').disabled=!slots.some(s=>s.type); }
+
+// ─── STICKERS ─────────────────────────────────────────────────────────────────
+const stickerPicker=document.getElementById('stickerPicker');
+document.getElementById('stickerBtn').onclick=()=>{ stickerPicker.value=''; stickerPicker.click(); };
+
+stickerPicker.addEventListener('change',()=>{
+  const file=stickerPicker.files[0];
+  if(!file) return;
+  addSticker(file);
+});
+
+function addSticker(file) {
+  const src=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    const ar=img.naturalHeight/img.naturalWidth;
+    const stk={id:nextStkId++, src, img, x:.5, y:.5, w:.35, ar, scale:1, rotation:0, selected:false};
+    stickers.push(stk);
+    renderStickerLayer();
+    selectSticker(stk.id);
+    toast('Стикер добавлен ✓');
+  };
+  img.src=src;
+}
+
+function renderStickerLayer() {
+  const layer=document.getElementById('stickerLayer');
+  layer.innerHTML='';
+  layer.style.pointerEvents = stickers.length ? 'none' : 'none'; // children handle events
+  const stageW=document.getElementById('stage').offsetWidth||355;
+
+  stickers.forEach(stk=>{
+    const anchor=document.createElement('div');
+    anchor.className='sticker-anchor';
+    anchor.dataset.id=stk.id;
+    anchor.style.cssText=`left:${stk.x*100}%;top:${stk.y*100}%;transform:translate(-50%,-50%)`;
+
+    const content=document.createElement('div');
+    content.className='sticker-content'+(stk.selected?' selected':'');
+    content.style.transform=`rotate(${stk.rotation}rad) scale(${stk.scale})`;
+
+    const imgEl=document.createElement('img');
+    const dispW=stk.w*stageW;
+    imgEl.src=stk.src;
+    imgEl.style.cssText=`width:${dispW}px;height:${dispW*stk.ar}px;display:block;border-radius:4px`;
+
+    content.appendChild(imgEl);
+
+    if(stk.selected) {
+      const del=document.createElement('button');
+      del.className='sticker-del';
+      del.innerHTML='&times;';
+      del.onclick=e=>{e.stopPropagation();deleteSticker(stk.id);};
+      content.appendChild(del);
+
+      // Corner handle: drag to rotate + scale
+      const corner=document.createElement('div');
+      corner.className='sticker-corner';
+      corner.innerHTML=`<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M10 2H6M10 2V6" stroke="#333" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      setupCornerHandle(corner, anchor, stk);
+      content.appendChild(corner);
+    }
+
+    anchor.appendChild(content);
+    layer.appendChild(anchor);
+    stk.el=anchor;
+    setupStickerInteraction(anchor, stk);
+  });
+}
+
+function setupStickerInteraction(anchorEl, stk) {
+  const ptrs=new Map();
+  let dragStart=null, pinchStart=null;
+
+  anchorEl.addEventListener('pointerdown', e=>{
+    e.preventDefault(); e.stopPropagation();
+    anchorEl.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+
+    if(ptrs.size===1) {
+      dragStart={px:e.clientX,py:e.clientY,sx:stk.x,sy:stk.y};
+      selectSticker(stk.id);
+    }
+    if(ptrs.size===2) {
+      const [p1,p2]=[...ptrs.values()];
+      pinchStart={dist:Math.hypot(p2.x-p1.x,p2.y-p1.y), scale:stk.scale};
+      dragStart=null;
+    }
+  });
+
+  anchorEl.addEventListener('pointermove', e=>{
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+
+    const stageEl=document.getElementById('stage');
+    const rect=stageEl.getBoundingClientRect();
+
+    if(ptrs.size===1 && dragStart) {
+      const dx=(e.clientX-dragStart.px)/rect.width;
+      const dy=(e.clientY-dragStart.py)/rect.height;
+      stk.x=Math.max(0,Math.min(1,dragStart.sx+dx));
+      stk.y=Math.max(0,Math.min(1,dragStart.sy+dy));
+      anchorEl.style.left=`${stk.x*100}%`;
+      anchorEl.style.top=`${stk.y*100}%`;
+    } else if(ptrs.size===2 && pinchStart) {
+      const [p1,p2]=[...ptrs.values()];
+      const dist=Math.hypot(p2.x-p1.x,p2.y-p1.y);
+      stk.scale=Math.max(0.1,Math.min(12, pinchStart.scale*(dist/pinchStart.dist)));
+      const contentEl=anchorEl.querySelector('.sticker-content');
+      if(contentEl) contentEl.style.transform=`scale(${stk.scale})`;
+    }
+  });
+
+  anchorEl.addEventListener('pointerup', e=>{
+    anchorEl.releasePointerCapture(e.pointerId);
+    ptrs.delete(e.pointerId);
+    if(ptrs.size<2){pinchStart=null;}
+    if(ptrs.size===0){dragStart=null;}
+  });
+  anchorEl.addEventListener('pointercancel', e=>{
+    anchorEl.releasePointerCapture(e.pointerId);
+    ptrs.delete(e.pointerId);
+  });
+}
+
+function setupCornerHandle(cornerEl, anchorEl, stk) {
+  let cx0, cy0, startAngle, startDist, startScale, startRot;
+
+  cornerEl.addEventListener('pointerdown', e=>{
+    e.preventDefault(); e.stopPropagation();
+    cornerEl.setPointerCapture(e.pointerId);
+    const stageRect=document.getElementById('stage').getBoundingClientRect();
+    cx0 = stageRect.left + stk.x * stageRect.width;
+    cy0 = stageRect.top  + stk.y * stageRect.height;
+    startAngle = Math.atan2(e.clientY - cy0, e.clientX - cx0);
+    startDist  = Math.hypot(e.clientX - cx0, e.clientY - cy0);
+    startScale = stk.scale;
+    startRot   = stk.rotation;
+  });
+
+  cornerEl.addEventListener('pointermove', e=>{
+    if(!cornerEl.hasPointerCapture(e.pointerId)) return;
+    const angle = Math.atan2(e.clientY - cy0, e.clientX - cx0);
+    const dist  = Math.hypot(e.clientX - cx0, e.clientY - cy0);
+    stk.rotation = startRot + (angle - startAngle);
+    stk.scale    = Math.max(0.05, Math.min(12, startScale * dist / startDist));
+    const c = anchorEl.querySelector('.sticker-content');
+    if(c) c.style.transform = `rotate(${stk.rotation}rad) scale(${stk.scale})`;
+  });
+
+  cornerEl.addEventListener('pointerup', e=>{
+    cornerEl.releasePointerCapture(e.pointerId);
+  });
+}
+
+function selectSticker(id) {
+  if(selStkId===id) return;
+  selStkId=id;
+  stickers.forEach(s=>s.selected=(s.id===id));
+  renderStickerLayer();
+}
+function deselectSticker() {
+  selStkId=null;
+  stickers.forEach(s=>s.selected=false);
+  renderStickerLayer();
+}
+function deleteSticker(id) {
+  const s=stickers.find(s=>s.id===id);
+  if(s?.src) URL.revokeObjectURL(s.src);
+  stickers=stickers.filter(s=>s.id!==id);
+  selStkId=null;
+  renderStickerLayer();
+  toast('Стикер удалён');
+}
+
+// deselect on stage tap
+document.getElementById('stage').addEventListener('click', e=>{
+  if(e.target.id==='stage') deselectSticker();
+});
+
+// ─── CANVAS EXPORT ────────────────────────────────────────────────────────────
+const OUT_W=1080, OUT_H=1920;
+const rc=document.getElementById('rc');
+
+document.getElementById('renderBtn').onclick=doRender;
+document.getElementById('roCancel').onclick=()=>{renderStop=true;};
+
+async function doRender() {
+  if(playing) togglePlay();
+  hideOverlay(); deselectSticker();
+
+  rc.width=OUT_W; rc.height=OUT_H;
+  const ctx=rc.getContext('2d');
+
+  if(!slots.some(s=>s.type==='video')) {
+    drawFrame(ctx);
+    rc.toBlob(blob=>saveFile(blob,'collage.jpg','image/jpeg'),'image/jpeg',.95);
+    return;
+  }
+
+  const ro=document.getElementById('renderOverlay');
+  const pFill=document.getElementById('pFill');
+  const roSub=document.getElementById('roSub');
+  ro.classList.add('on'); renderStop=false;
+  pFill.style.width='0%'; roSub.textContent='Инициализация…';
+
+  for(const s of slots) if(s.type==='video'&&s.el){s.el.loop=false;s.el.currentTime=0;}
+  await delay(120);
+
+  const durs=slots.filter(s=>s.type==='video'&&s.el).map(s=>isFinite(s.el.duration)?s.el.duration:10);
+  const totalDur=Math.max(...durs);
+
+  const mime=['video/mp4','video/webm;codecs=vp9','video/webm']
+    .find(m=>{try{return MediaRecorder.isTypeSupported(m);}catch{return false;}})||'';
+  if(!mime){ro.classList.remove('on');alert('Браузер не поддерживает запись.\nOткройте в Safari 14.3+ или Chrome.');return;}
+
+  let stream;
+  try{stream=rc.captureStream(renderFps);}
+  catch(e){ro.classList.remove('on');alert('Canvas capture недоступен.\nОткройте в Chrome.');return;}
+
+  const chunks=[];
+  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:10_000_000});
+  rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  rec.start(200);
+
+  for(const s of slots) if(s.type==='video'&&s.el){s.el.currentTime=0;await s.el.play().catch(()=>{});}
+
+  roSub.textContent=`Запись 0.0s / ${totalDur.toFixed(1)}s`;
+  const t0=performance.now();
+
+  await new Promise(resolve=>{
+    function frame(){
+      if(renderStop){resolve();return;}
+      const elapsed=(performance.now()-t0)/1000;
+      const pct=Math.min(elapsed/totalDur,1);
+      drawFrame(ctx);
+      pFill.style.width=`${pct*100}%`;
+      roSub.textContent=`Запись ${elapsed.toFixed(1)}s / ${totalDur.toFixed(1)}s`;
+      pct>=1?resolve():requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+
+  for(const s of slots) if(s.type==='video'&&s.el){s.el.pause();s.el.loop=true;}
+  if(renderStop){ro.classList.remove('on');return;}
+
+  roSub.textContent='Финализация…'; pFill.style.width='100%';
+  rec.stop();
+  await new Promise(r=>{rec.onstop=r;});
+  ro.classList.remove('on');
+
+  const ext=mime.includes('mp4')?'mp4':'webm';
+  await saveFile(new Blob(chunks,{type:mime}), `collage-${Date.now()}.${ext}`, mime);
+}
+
+function drawFrame(ctx) {
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,OUT_W,OUT_H);
+  const stageW=document.getElementById('stage').offsetWidth||355;
+  const outGap=gapPx*(OUT_W/stageW);
+
+  slots.forEach(s=>{
+    if(!s.area) return;
+    const a=s.area, hg=outGap/2;
+    const x=a.x*OUT_W+(a.x>0?hg:0);
+    const y=a.y*OUT_H+(a.y>0?hg:0);
+    const w=a.w*OUT_W-(a.x>0?hg:0)-(a.x+a.w<1?hg:0);
+    const h=a.h*OUT_H-(a.y>0?hg:0)-(a.y+a.h<1?hg:0);
+    if(!s.el){ctx.fillStyle='#1c1c1e';ctx.fillRect(x,y,w,h);return;}
+    drawCover(ctx,s.el,x,y,w,h);
+  });
+
+  // Draw stickers on top
+  stickers.forEach(stk=>{
+    if(!stk.img||!stk.img.complete) return;
+    const sW=stk.w*OUT_W*stk.scale;
+    const sH=sW*stk.ar;
+    const cx=stk.x*OUT_W, cy=stk.y*OUT_H;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(stk.rotation || 0);
+    ctx.drawImage(stk.img, -sW/2, -sH/2, sW, sH);
+    ctx.restore();
+  });
+}
+
+function drawCover(ctx,src,dx,dy,dw,dh){
+  const sw=src.videoWidth??src.naturalWidth??0;
+  const sh=src.videoHeight??src.naturalHeight??0;
+  if(!sw||!sh) return;
+  const scale=Math.max(dw/sw,dh/sh);
+  const sW=sw*scale, sH=sh*scale;
+  const ox=(sW-dw)/2, oy=(sH-dh)/2;
+  ctx.save(); ctx.beginPath(); ctx.rect(dx,dy,dw,dh); ctx.clip();
+  ctx.drawImage(src,dx-ox,dy-oy,sW,sH); ctx.restore();
+}
+
+async function saveFile(blob,name,type){
+  const file=new File([blob],name,{type});
+  if(navigator.share&&navigator.canShare?.({files:[file]})){
+    try{await navigator.share({files:[file],title:'VideoCollage'});return;}
+    catch(e){if(e.name==='AbortError') return;}
+  }
+  const url=URL.createObjectURL(blob);
+  const a=Object.assign(document.createElement('a'),{href:url,download:name});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),15000);
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),1800);
+}
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ─── FPS PICKER ───────────────────────────────────────────────────────────────
+document.getElementById('fpsPills').addEventListener('click', e=>{
+  const btn=e.target.closest('.fps-pill');
+  if(!btn) return;
+  renderFps=+btn.dataset.fps;
+  document.querySelectorAll('.fps-pill').forEach(b=>b.classList.toggle('active', b===btn));
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+buildPicker(); buildStage(); syncBtns();
+</script>
+</body>
+</html>
