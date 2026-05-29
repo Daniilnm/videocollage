@@ -974,19 +974,30 @@ async function doRender() {
   for(const s of slots) if(s.type==='video'&&s.el){s.el.currentTime=0;await s.el.play().catch(()=>{});}
 
   roSub.textContent=`Запись 0.0s / ${totalDur.toFixed(1)}s`;
-  const t0=performance.now();
+
+  // Self-correcting frame timer: fires at absolute timestamps, not relative delays.
+  // requestAnimationFrame overshoots fps (runs at 60hz), causing captureStream to miss frames.
+  // This approach schedules each frame at t0 + N * frameInterval, compensating for drift.
+  const msPerFrame = 1000 / renderFps;
+  const t0 = performance.now();
+  let drawn = 0;
 
   await new Promise(resolve=>{
-    function frame(){
+    function tick(){
       if(renderStop){resolve();return;}
       const elapsed=(performance.now()-t0)/1000;
       const pct=Math.min(elapsed/totalDur,1);
       drawFrame(ctx);
+      drawn++;
       pFill.style.width=`${pct*100}%`;
       roSub.textContent=`Запись ${elapsed.toFixed(1)}s / ${totalDur.toFixed(1)}s`;
-      pct>=1?resolve():requestAnimationFrame(frame);
+      if(pct>=1){ resolve(); return; }
+      // Schedule next at the exact absolute time — compensates for late firings
+      const nextAt = t0 + drawn * msPerFrame;
+      const delay  = Math.max(0, nextAt - performance.now());
+      setTimeout(tick, delay);
     }
-    requestAnimationFrame(frame);
+    tick(); // first frame immediately
   });
 
   for(const s of slots) if(s.type==='video'&&s.el){s.el.pause();s.el.loop=true;}
